@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Ludo King — 2 Players</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --red:#E53935;--red-l:#FFCDD2;--red-d:#B71C1C;--red-glow:rgba(229,57,53,0.5);
+  --blue:#1E88E5;--blue-l:#BBDEFB;--blue-d:#0D47A1;--blue-glow:rgba(30,136,229,0.5);
+  --green:#43A047;--green-l:#C8E6C9;
+  --yellow:#F9A825;--yellow-l:#FFF9C4;
+  --gold:#FFD700;--gold2:#FFA000;
+  --bg-from:#0A0A1A;--bg-to:#1A0A2E;
+  --panel:#12122A;--panel2:#1E1E3A;
+  --border:#2E2E5A;--border2:#3E3E7A;
+  --text:#F0F0FF;--text2:#9090C0;
+  --shadow:0 8px 32px rgba(0,0,0,0.5);
+}
+
+body{
+  font-family:'Nunito',sans-serif;
+  background:linear-gradient(135deg,var(--bg-from),var(--bg-to));
+  min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:16px;
+  overflow-x:hidden;
+}
+
+/* Animated star particles */
+body::before{
+  content:'';position:fixed;inset:0;
+  background:
+    radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.3) 0%,transparent 100%),
+    radial-gradient(1px 1px at 80% 10%, rgba(255,255,255,0.2) 0%,transparent 100%),
+    radial-gradient(1px 1px at 50% 80%, rgba(255,255,255,0.25) 0%,transparent 100%),
+    radial-gradient(1px 1px at 30% 60%, rgba(255,255,255,0.15) 0%,transparent 100%),
+    radial-gradient(1px 1px at 90% 70%, rgba(255,255,255,0.2) 0%,transparent 100%);
+  pointer-events:none;z-index:0;
+}
+
+/* ── HEADER ── */
+#header{
+  text-align:center;margin-bottom:14px;position:relative;z-index:1;
+  animation:fadeDown 0.7s ease both;
+}
+#logo{
+  font-family:'Cinzel',serif;font-size:30px;font-weight:900;
+  background:linear-gradient(90deg,var(--gold),#FFF176,var(--gold2),var(--gold));
+  background-size:200%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+  animation:shimmer 3s linear infinite;
+  letter-spacing:2px;text-shadow:none;
+  filter:drop-shadow(0 0 10px rgba(255,215,0,0.4));
+}
+#subtitle{font-size:12px;color:var(--text2);letter-spacing:3px;text-transform:uppercase;margin-top:2px}
+@keyframes shimmer{0%{background-position:0%}100%{background-position:200%}}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── LAYOUT ── */
+#main{
+  display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;justify-content:center;
+  position:relative;z-index:1;
+}
+
+/* ── BOARD ── */
+#board-wrap{
+  position:relative;width:460px;height:460px;flex-shrink:0;
+  animation:fadeIn 0.8s 0.2s ease both;
+}
+canvas#board{
+  position:absolute;top:0;left:0;
+  width:460px;height:460px;
+  border-radius:14px;
+  box-shadow:0 0 0 2px var(--border2), 0 0 40px rgba(255,215,0,0.15), var(--shadow);
+  cursor:pointer;
+}
+/* Token move trail */
+#trail-canvas{
+  position:absolute;top:0;left:0;
+  width:460px;height:460px;
+  pointer-events:none;border-radius:14px;
+}
+
+/* ── RIGHT PANELS ── */
+#panels{display:flex;flex-direction:column;gap:10px;width:185px;animation:fadeIn 0.8s 0.3s ease both;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+.panel{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:12px 14px;
+  font-size:13px;
+  box-shadow:var(--shadow);
+  position:relative;overflow:hidden;
+}
+.panel::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,0.03),transparent);
+  pointer-events:none;
+}
+.panel h3{
+  font-size:10px;font-weight:700;
+  text-transform:uppercase;letter-spacing:1.2px;
+  color:var(--text2);margin-bottom:8px;
+}
+
+/* Turn panel */
+#turn-panel{border-color:var(--border2);}
+#turn-name{font-family:'Cinzel',serif;font-size:18px;font-weight:700;color:var(--text);transition:color 0.3s}
+#status-text{font-size:12px;color:var(--text2);line-height:1.5;margin-top:4px;min-height:32px}
+.turn-dot{width:14px;height:14px;border-radius:50%;display:inline-block;margin-right:8px;vertical-align:middle;box-shadow:0 0 8px currentColor;transition:background 0.3s,box-shadow 0.3s}
+
+/* ── DICE PANEL ── */
+#dice-panel{background:var(--panel2);}
+#dice-stage{
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+}
+
+/* 3D Dice */
+#dice-3d{
+  width:70px;height:70px;
+  perspective:200px;
+  cursor:pointer;
+  margin:4px auto;
+}
+#dice-inner{
+  width:100%;height:100%;
+  position:relative;transform-style:preserve-3d;
+  transition:transform 0.1s;
+}
+/* Dice faces rendered on canvas */
+#dice-canvas{
+  width:70px;height:70px;
+  border-radius:14px;
+  background:white;
+  box-shadow:
+    0 4px 0 rgba(0,0,0,0.3),
+    0 0 20px rgba(255,215,0,0.2),
+    inset 0 1px 0 rgba(255,255,255,0.5);
+  display:block;
+  transition:transform 0.15s;
+}
+#dice-canvas.rolling{
+  animation:diceRoll 0.6s cubic-bezier(0.36,0.07,0.19,0.97);
+}
+@keyframes diceRoll{
+  0%  {transform:rotate(0deg)   scale(1)}
+  10% {transform:rotate(-15deg) scale(1.1)}
+  20% {transform:rotate(20deg)  scale(0.95)}
+  30% {transform:rotate(-18deg) scale(1.08)}
+  40% {transform:rotate(15deg)  scale(0.97)}
+  50% {transform:rotate(-12deg) scale(1.05)}
+  60% {transform:rotate(10deg)  scale(0.98)}
+  70% {transform:rotate(-8deg)  scale(1.02)}
+  80% {transform:rotate(5deg)   scale(0.99)}
+  90% {transform:rotate(-2deg)  scale(1.01)}
+  100%{transform:rotate(0deg)   scale(1)}
+}
+
+/* Roll button */
+#roll-btn{
+  width:100%;padding:10px;
+  font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;
+  border:none;border-radius:10px;
+  background:linear-gradient(135deg,var(--gold2),var(--gold));
+  color:#1A0A00;
+  cursor:pointer;letter-spacing:0.5px;
+  box-shadow:0 4px 0 rgba(0,0,0,0.3),0 0 16px rgba(255,215,0,0.25);
+  transition:transform 0.1s,box-shadow 0.1s,opacity 0.2s;
+  position:relative;overflow:hidden;
+}
+#roll-btn::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent);
+  transform:translateX(-100%);
+  transition:transform 0s;
+}
+#roll-btn:hover::after{transform:translateX(100%);transition:transform 0.4s;}
+#roll-btn:hover{transform:translateY(-1px);box-shadow:0 6px 0 rgba(0,0,0,0.3),0 0 24px rgba(255,215,0,0.4);}
+#roll-btn:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,0.3);}
+#roll-btn:disabled{opacity:0.35;cursor:not-allowed;transform:none;box-shadow:0 4px 0 rgba(0,0,0,0.2);}
+
+/* Scores */
+.score-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:6px 0;border-bottom:1px solid var(--border);
+}
+.score-row:last-child{border:none;}
+.pdot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle;}
+.score-val{
+  font-family:'Cinzel',serif;font-size:13px;font-weight:700;
+  color:var(--gold);
+}
+
+/* Log */
+#log{font-size:11px;color:var(--text2);max-height:110px;overflow-y:auto;line-height:1.8;}
+#log div{animation:logIn 0.3s ease both;}
+@keyframes logIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+#log::-webkit-scrollbar{width:3px;}
+#log::-webkit-scrollbar-track{background:transparent;}
+#log::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+/* Winner */
+#winner-banner{
+  display:none;
+  text-align:center;padding:10px 12px;
+  border-radius:10px;font-weight:800;font-size:13px;
+  margin-top:6px;
+  animation:winPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes winPop{from{opacity:0;transform:scale(0.5)}to{opacity:1;transform:scale(1)}}
+
+#new-game-btn{
+  display:none;width:100%;padding:10px;
+  font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;
+  border:2px solid var(--gold);border-radius:10px;
+  background:transparent;color:var(--gold);
+  cursor:pointer;letter-spacing:0.5px;
+  transition:background 0.2s,color 0.2s;
+  box-shadow:0 0 12px rgba(255,215,0,0.15);
+}
+#new-game-btn:hover{background:var(--gold);color:#1A0A00;}
+
+/* ── KILL POPUP ── */
+#kill-popup{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);
+  background:linear-gradient(135deg,#D32F2F,#FF6F00);
+  color:white;font-family:'Cinzel',serif;font-size:22px;font-weight:700;
+  padding:14px 32px;border-radius:16px;
+  box-shadow:0 0 40px rgba(255,0,0,0.5),var(--shadow);
+  pointer-events:none;z-index:100;
+  transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1),opacity 0.3s;
+  opacity:0;
+}
+#kill-popup.show{transform:translate(-50%,-50%) scale(1);opacity:1;}
+
+/* ── EXTRA TURN POPUP ── */
+#extra-popup{
+  position:fixed;top:40%;left:50%;transform:translate(-50%,-50%) scale(0);
+  background:linear-gradient(135deg,#FFD700,#FFA000);
+  color:#1A0A00;font-family:'Cinzel',serif;font-size:18px;font-weight:700;
+  padding:12px 28px;border-radius:14px;
+  box-shadow:0 0 40px rgba(255,215,0,0.6),var(--shadow);
+  pointer-events:none;z-index:100;
+  transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1),opacity 0.3s;
+  opacity:0;
+}
+#extra-popup.show{transform:translate(-50%,-50%) scale(1);opacity:1;}
+
+/* ── CONFETTI CANVAS ── */
+#confetti-canvas{
+  position:fixed;inset:0;pointer-events:none;z-index:50;
+}
+
+/* ── RESPONSIVE ── */
+@media(max-width:700px){
+  #board-wrap{width:320px;height:320px;}
+  canvas#board,#trail-canvas{width:320px;height:320px;}
+  #panels{width:100%;flex-direction:row;flex-wrap:wrap;}
+  .panel{flex:1;min-width:140px;}
+  #logo{font-size:22px;}
+}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div id="logo">♟ LUDO KING</div>
+  <div id="subtitle">Two Player Edition</div>
+</div>
+
+<div id="main">
+  <div id="board-wrap">
+    <canvas id="board" width="460" height="460"></canvas>
+    <canvas id="trail-canvas" width="460" height="460"></canvas>
+  </div>
+
+  <div id="panels">
+    <!-- Turn -->
+    <div class="panel" id="turn-panel">
+      <h3>Current Turn</h3>
+      <div style="display:flex;align-items:center;margin-bottom:4px">
+        <span class="turn-dot" id="turn-dot"></span>
+        <span id="turn-name"></span>
+      </div>
+      <div id="status-text">Roll the dice to begin!</div>
+      <div id="winner-banner"></div>
+    </div>
+
+    <!-- Dice -->
+    <div class="panel" id="dice-panel">
+      <h3>Roll Dice</h3>
+      <div id="dice-stage">
+        <canvas id="dice-canvas" width="70" height="70"></canvas>
+        <button id="roll-btn">🎲 ROLL</button>
+      </div>
+    </div>
+
+    <!-- Scores -->
+    <div class="panel">
+      <h3>Tokens Home</h3>
+      <div class="score-row">
+        <span><span class="pdot" style="background:var(--red);box-shadow:0 0 6px var(--red)"></span>Red</span>
+        <span class="score-val" id="score-red">0 / 4</span>
+      </div>
+      <div class="score-row">
+        <span><span class="pdot" style="background:var(--blue);box-shadow:0 0 6px var(--blue)"></span>Blue</span>
+        <span class="score-val" id="score-blue">0 / 4</span>
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div class="panel">
+      <h3>Game Log</h3>
+      <div id="log"></div>
+    </div>
+
+    <button id="new-game-btn">↺ New Game</button>
+  </div>
+</div>
+
+<!-- Popups -->
+<div id="kill-popup">💀 KILLED!</div>
+<div id="extra-popup">⭐ EXTRA TURN!</div>
+<canvas id="confetti-canvas"></canvas>
+
+<script>
+/* ═══════════════════════════════════════════════
+   BOARD DATA
+═══════════════════════════════════════════════ */
+const BC = document.getElementById('board');
+const ctx = BC.getContext('2d');
+const TC = document.getElementById('trail-canvas');
+const tctx = TC.getContext('2d');
+const S = 460, CS = S / 15;
+
+const PATH = [
+  [6,14],[6,13],[6,12],[6,11],[6,10],[6,9],
+  [5,8],[4,8],[3,8],[2,8],[1,8],[0,8],
+  [0,6],[1,6],[2,6],[3,6],[4,6],[5,6],
+  [6,5],[6,4],[6,3],[6,2],[6,1],[6,0],
+  [8,0],[8,1],[8,2],[8,3],[8,4],[8,5],
+  [9,6],[10,6],[11,6],[12,6],[13,6],[14,6],
+  [14,8],[13,8],[12,8],[11,8],[10,8],[9,8],
+  [8,9],[8,10],[8,11],[8,12],[8,13],[8,14],
+];
+
+const HOME_COL = {
+  red:  [[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]],
+  blue: [[7,1],[7,2],[7,3],[7,4],[7,5],[7,6]],
+};
+const START_IDX = { red:0, blue:26 };
+const HOME_CELLS = {
+  red:  [[2,12],[3,12],[2,13],[3,13]],
+  blue: [[11,1],[12,1],[11,2],[12,2]],
+};
+const SAFE = [[6,2],[2,6],[12,8],[8,12],[1,8],[8,1],[13,6],[6,13],[8,6],[6,8]];
+
+const COLORS  = { red:'#E53935', blue:'#1E88E5' };
+const GLOW    = { red:'rgba(229,57,53,0.6)', blue:'rgba(30,136,229,0.6)' };
+const LIGHT   = { red:'#FFCDD2', blue:'#BBDEFB' };
+const DARK    = { red:'#B71C1C', blue:'#0D47A1' };
+
+/* ═══════════════════════════════════════════════
+   GAME STATE
+═══════════════════════════════════════════════ */
+let state;
+function initState(){
+  state={
+    turn:'red',phase:'roll',dice:null,
+    tokens:{
+      red: [{pos:-1,finished:false},{pos:-1,finished:false},{pos:-1,finished:false},{pos:-1,finished:false}],
+      blue:[{pos:-1,finished:false},{pos:-1,finished:false},{pos:-1,finished:false},{pos:-1,finished:false}],
+    },
+    movable:[],winner:null,extraTurn:false,
+    scores:{red:0,blue:0},
+    animating:false,
+  };
+}
+initState();
+
+/* ═══════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════ */
+function isSafe(c,r){return SAFE.some(([sc,sr])=>sc===c&&sr===r);}
+function posToCell(player,pos){
+  if(pos===-1) return null;
+  if(pos>=48&&pos<=53) return HOME_COL[player][pos-48];
+  return PATH[(START_IDX[player]+pos)%48];
+}
+function cellX(c){return c*CS+CS/2;}
+function cellY(r){return r*CS+CS/2;}
+function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();}
+
+/* ═══════════════════════════════════════════════
+   DICE CANVAS DRAWING
+═══════════════════════════════════════════════ */
+const DC = document.getElementById('dice-canvas');
+const dctx = DC.getContext('2d');
+const DOT_POS = {
+  1:[[0.5,0.5]],
+  2:[[0.25,0.25],[0.75,0.75]],
+  3:[[0.25,0.25],[0.5,0.5],[0.75,0.75]],
+  4:[[0.25,0.25],[0.75,0.25],[0.25,0.75],[0.75,0.75]],
+  5:[[0.25,0.25],[0.75,0.25],[0.5,0.5],[0.25,0.75],[0.75,0.75]],
+  6:[[0.25,0.2],[0.75,0.2],[0.25,0.5],[0.75,0.5],[0.25,0.8],[0.75,0.8]],
+};
+
+function drawDiceFace(n){
+  const W=70;
+  dctx.clearRect(0,0,W,W);
+  // Background gradient
+  const bg=dctx.createLinearGradient(0,0,W,W);
+  bg.addColorStop(0,'#FFFFFF');
+  bg.addColorStop(1,'#F0F0F0');
+  dctx.fillStyle=bg;
+  rr(dctx,2,2,W-4,W-4,12);
+  dctx.fill();
+  // Border
+  dctx.strokeStyle='#DDD';dctx.lineWidth=1;
+  rr(dctx,2,2,W-4,W-4,12);dctx.stroke();
+  // Dots
+  if(!n){
+    // Placeholder question mark
+    dctx.fillStyle='#CCC';dctx.font='bold 28px Nunito';
+    dctx.textAlign='center';dctx.textBaseline='middle';
+    dctx.fillText('?',W/2,W/2);
+    return;
+  }
+  const dotR=5;
+  DOT_POS[n].forEach(([fx,fy])=>{
+    const x=fx*W,y=fy*W;
+    const g=dctx.createRadialGradient(x-1,y-1,0,x,y,dotR);
+    g.addColorStop(0,n===1?'#FF3D00':'#1A1A2E');
+    g.addColorStop(1,n===1?'#B71C1C':'#0A0A14');
+    dctx.fillStyle=g;
+    dctx.beginPath();dctx.arc(x,y,dotR,0,Math.PI*2);dctx.fill();
+  });
+}
+drawDiceFace(0);
+
+/* ═══════════════════════════════════════════════
+   BOARD RENDERING
+═══════════════════════════════════════════════ */
+let pulseT=0;
+function drawBoard(){
+  ctx.clearRect(0,0,S,S);
+
+  // Board background with wood texture feel
+  const bg=ctx.createLinearGradient(0,0,S,S);
+  bg.addColorStop(0,'#1A1A0A');bg.addColorStop(1,'#2A2A12');
+  rr(ctx,0,0,S,S,14);ctx.fillStyle=bg;ctx.fill();
+
+  // Cell backgrounds per quadrant
+  for(let r=0;r<15;r++){
+    for(let c=0;c<15;c++){
+      let color='#1E1E10';
+      if(c<6&&r<6)       color='#2A0A0A';
+      else if(c>8&&r<6)  color='#0A102A';
+      else if(c<6&&r>8)  color='#0A1A0A';
+      else if(c>8&&r>8)  color='#1A140A';
+      ctx.fillStyle=color;
+      ctx.fillRect(c*CS,r*CS,CS,CS);
+      ctx.strokeStyle='rgba(255,255,255,0.04)';ctx.lineWidth=0.5;
+      ctx.strokeRect(c*CS,r*CS,CS,CS);
+    }
+  }
+
+  // Home zones
+  drawHomeZone(0,0,6,6,'#C62828','#FF8A80','#FF6B6B');
+  drawHomeZone(9,0,6,6,'#1565C0','#82B1FF','#64B5F6');
+  drawHomeZone(0,9,6,6,'#2E7D32','#B9F6CA','#69F0AE');
+  drawHomeZone(9,9,6,6,'#E65100','#FFD180','#FFAB40');
+
+  // Draw center triangle decor
+  drawCenter();
+
+  // Path cells with glow
+  PATH.forEach(([c,r],i)=>{
+    if(i===START_IDX.red){
+      drawGlowCell(c,r,'#C62828','rgba(198,40,40,0.3)');
+      drawStar(c,r,'#FF8A80');
+    } else if(i===START_IDX.blue){
+      drawGlowCell(c,r,'#1565C0','rgba(21,101,192,0.3)');
+      drawStar(c,r,'#82B1FF');
+    } else if(isSafe(c,r)){
+      drawGlowCell(c,r,'#555','rgba(255,255,255,0.05)');
+      drawStar(c,r,'rgba(255,255,255,0.5)');
+    }
+  });
+
+  // Home columns with gradient
+  HOME_COL.red.forEach(([c,r],i)=>{
+    const a=0.4+i*0.1;
+    ctx.fillStyle=`rgba(198,40,40,${a})`;ctx.fillRect(c*CS,r*CS,CS,CS);
+    ctx.strokeStyle='rgba(255,138,128,0.4)';ctx.lineWidth=0.5;ctx.strokeRect(c*CS,r*CS,CS,CS);
+  });
+  HOME_COL.blue.forEach(([c,r],i)=>{
+    const a=0.4+i*0.1;
+    ctx.fillStyle=`rgba(21,101,192,${a})`;ctx.fillRect(c*CS,r*CS,CS,CS);
+    ctx.strokeStyle='rgba(130,177,255,0.4)';ctx.lineWidth=0.5;ctx.strokeRect(c*CS,r*CS,CS,CS);
+  });
+
+  // Movable highlights (pulsing)
+  const pulse=0.5+0.5*Math.sin(pulseT*4);
+  state.movable.forEach(idx=>{
+    const t=state.tokens[state.turn][idx];
+    let cell;
+    if(t.pos===-1){
+      cell=HOME_CELLS[state.turn][idx];
+    } else {
+      cell=posToCell(state.turn,t.pos);
+    }
+    if(cell){
+      const [c,r]=cell;
+      ctx.save();
+      ctx.shadowColor=GLOW[state.turn];ctx.shadowBlur=12*pulse+4;
+      ctx.strokeStyle=COLORS[state.turn];ctx.lineWidth=2;
+      rr(ctx,c*CS+1,r*CS+1,CS-2,CS-2,4);ctx.stroke();
+      ctx.fillStyle=`rgba(${state.turn==='red'?'229,57,53':'30,136,229'},${0.15+0.1*pulse})`;
+      rr(ctx,c*CS+1,r*CS+1,CS-2,CS-2,4);ctx.fill();
+      ctx.restore();
+    }
+  });
+
+  // Tokens
+  ['red','blue'].forEach(p=>drawTokens(p));
+}
+
+function drawHomeZone(cx,cy,w,h,border,bright,accent){
+  // Dark bg
+  for(let r=cy;r<cy+h;r++)
+    for(let c=cx;c<cx+w;c++){
+      ctx.fillStyle='rgba(0,0,0,0.2)';ctx.fillRect(c*CS,r*CS,CS,CS);
+    }
+  const pad=1;
+  // Outer border rect
+  ctx.strokeStyle=bright;ctx.lineWidth=2;
+  rr(ctx,(cx+pad)*CS,(cy+pad)*CS,(w-pad*2)*CS,(h-pad*2)*CS,10);ctx.stroke();
+  // Colored fill
+  const gr=ctx.createRadialGradient((cx+w/2)*CS,(cy+h/2)*CS,CS*0.5,(cx+w/2)*CS,(cy+h/2)*CS,CS*2.5);
+  gr.addColorStop(0,border+'55');gr.addColorStop(1,border+'11');
+  ctx.fillStyle=gr;
+  rr(ctx,(cx+pad)*CS,(cy+pad)*CS,(w-pad*2)*CS,(h-pad*2)*CS,10);ctx.fill();
+  // Inner white circle
+  const icx=(cx+w/2)*CS,icy=(cy+h/2)*CS,ir=CS*1.6;
+  ctx.fillStyle='rgba(255,255,255,0.07)';
+  ctx.beginPath();ctx.arc(icx,icy,ir,0,Math.PI*2);ctx.fill();
+}
+
+function drawCenter(){
+  const mx=7.5*CS,my=7.5*CS,r=3*CS;
+  const tris=[
+    {c:'#C62828',pts:[[mx,my],[mx-r,my-r],[mx+r,my-r]]},
+    {c:'#1565C0',pts:[[mx,my],[mx+r,my-r],[mx+r,my+r]]},
+    {c:'#2E7D32',pts:[[mx,my],[mx+r,my+r],[mx-r,my+r]]},
+    {c:'#E65100',pts:[[mx,my],[mx-r,my+r],[mx-r,my-r]]},
+  ];
+  tris.forEach(({c,pts})=>{
+    ctx.fillStyle=c;ctx.globalAlpha=0.75;
+    ctx.beginPath();ctx.moveTo(...pts[0]);ctx.lineTo(...pts[1]);ctx.lineTo(...pts[2]);ctx.closePath();ctx.fill();
+  });
+  ctx.globalAlpha=1;
+  // Glow center circle
+  const cg=ctx.createRadialGradient(mx,my,0,mx,my,CS*0.9);
+  cg.addColorStop(0,'rgba(255,215,0,0.3)');cg.addColorStop(1,'rgba(0,0,0,0.5)');
+  ctx.fillStyle=cg;
+  ctx.beginPath();ctx.arc(mx,my,CS*0.9,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#1A1A1A';ctx.strokeStyle='rgba(255,215,0,0.5)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(mx,my,CS*0.8,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle='rgba(255,215,0,0.9)';ctx.font=`${CS*0.7}px serif`;
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('🏆',mx,my);
+}
+
+function drawGlowCell(c,r,stroke,fill){
+  ctx.fillStyle=fill;ctx.fillRect(c*CS,r*CS,CS,CS);
+  ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.strokeRect(c*CS,r*CS,CS,CS);
+}
+
+function drawStar(c,r,color){
+  ctx.fillStyle=color;ctx.font=`${CS*0.5}px serif`;
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('★',cellX(c),cellY(r));
+}
+
+function drawTokens(player){
+  state.tokens[player].forEach((t,i)=>{
+    if(t.finished) return;
+    let x,y;
+    if(t.pos===-1){
+      const hc=HOME_CELLS[player][i];if(!hc)return;
+      x=cellX(hc[0]);y=cellY(hc[1]);
+    } else {
+      const cell=posToCell(player,t.pos);if(!cell)return;
+      const samePos=state.tokens[player].filter((tt,ii)=>ii!==i&&tt.pos===t.pos&&!tt.finished);
+      const offs=[[-3.5,-3.5],[3.5,-3.5],[-3.5,3.5],[3.5,3.5]];
+      const off=samePos.length>0?offs[i]:[0,0];
+      x=cellX(cell[0])+off[0];y=cellY(cell[1])+off[1];
+    }
+
+    const isMovable=state.movable.includes(i);
+    const R=CS*0.36;
+
+    ctx.save();
+    if(isMovable){
+      ctx.shadowColor=GLOW[player];
+      ctx.shadowBlur=14*(0.7+0.3*Math.sin(pulseT*4+i));
+    }
+
+    // Shadow base
+    ctx.fillStyle='rgba(0,0,0,0.4)';
+    ctx.beginPath();ctx.ellipse(x+2,y+3,R,R*0.4,0,0,Math.PI*2);ctx.fill();
+
+    // Body gradient
+    const tg=ctx.createRadialGradient(x-R*0.3,y-R*0.3,0,x,y,R);
+    tg.addColorStop(0,'white');
+    tg.addColorStop(0.3,COLORS[player]+'CC');
+    tg.addColorStop(1,DARK[player]);
+    ctx.fillStyle=tg;
+    ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);ctx.fill();
+
+    // Rim
+    ctx.strokeStyle=DARK[player];ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);ctx.stroke();
+
+    // Inner circle
+    ctx.fillStyle='rgba(255,255,255,0.15)';
+    ctx.beginPath();ctx.arc(x-R*0.2,y-R*0.25,R*0.35,0,Math.PI*2);ctx.fill();
+
+    // Number
+    ctx.fillStyle='white';ctx.font=`bold ${CS*0.24}px Nunito`;
+    ctx.shadowBlur=0;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(i+1,x,y);
+
+    // Movable ring
+    if(isMovable){
+      ctx.strokeStyle='rgba(255,215,0,0.9)';ctx.lineWidth=2;
+      ctx.setLineDash([3,3]);
+      ctx.beginPath();ctx.arc(x,y,R+4,0,Math.PI*2);ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.restore();
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   TRAIL ANIMATION
+═══════════════════════════════════════════════ */
+let trails=[];
+function addTrail(x,y,color){
+  trails.push({x,y,color,r:CS*0.3,a:0.8,life:1});
+}
+function updateTrails(){
+  tctx.clearRect(0,0,S,S);
+  trails=trails.filter(t=>{
+    t.life-=0.08;t.r+=1.5;t.a=t.life*0.5;
+    if(t.life<=0) return false;
+    tctx.beginPath();
+    tctx.arc(t.x,t.y,t.r,0,Math.PI*2);
+    tctx.strokeStyle=t.color.replace(')',`,${t.a})`).replace('rgb','rgba');
+    tctx.lineWidth=2;tctx.stroke();
+    return true;
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   GAME LOOP (pulse + trails)
+═══════════════════════════════════════════════ */
+let lastTime=0;
+function gameLoop(ts){
+  const dt=(ts-lastTime)/1000;lastTime=ts;
+  pulseT+=dt;
+  if(state.movable.length>0||trails.length>0){
+    drawBoard();
+    updateTrails();
+  }
+  requestAnimationFrame(gameLoop);
+}
+requestAnimationFrame(gameLoop);
+
+/* ═══════════════════════════════════════════════
+   DICE ROLL ANIMATION
+═══════════════════════════════════════════════ */
+let diceAnimTimer=null;
+function animateDice(finalVal, cb){
+  let ticks=0,maxTicks=14;
+  const dc=document.getElementById('dice-canvas');
+  dc.classList.add('rolling');
+  function tick(){
+    const fake=Math.ceil(Math.random()*6);
+    drawDiceFace(fake);
+    ticks++;
+    if(ticks<maxTicks){
+      const delay=50+ticks*(ticks>10?30:5);
+      diceAnimTimer=setTimeout(tick,delay);
+    } else {
+      drawDiceFace(finalVal);
+      dc.classList.remove('rolling');
+      if(cb) cb();
+    }
+  }
+  tick();
+}
+
+/* ═══════════════════════════════════════════════
+   CONFETTI
+═══════════════════════════════════════════════ */
+const CC=document.getElementById('confetti-canvas');
+const cctx=CC.getContext('2d');
+let confetti=[];
+function startConfetti(){
+  CC.width=window.innerWidth;CC.height=window.innerHeight;
+  confetti=Array.from({length:120},()=>({
+    x:Math.random()*CC.width,y:Math.random()*-CC.height,
+    vx:(Math.random()-0.5)*3,vy:2+Math.random()*4,
+    w:6+Math.random()*8,h:6+Math.random()*4,
+    r:Math.random()*Math.PI*2,vr:(Math.random()-0.5)*0.2,
+    color:['#FFD700','#E53935','#1E88E5','#43A047','#FF7043','#AB47BC'][Math.floor(Math.random()*6)],
+  }));
+  let frames=0;
+  function loop(){
+    cctx.clearRect(0,0,CC.width,CC.height);
+    confetti.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;p.vy+=0.05;
+      cctx.save();cctx.translate(p.x,p.y);cctx.rotate(p.r);
+      cctx.fillStyle=p.color;cctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);
+      cctx.restore();
+    });
+    frames++;
+    if(frames<180) requestAnimationFrame(loop);
+    else cctx.clearRect(0,0,CC.width,CC.height);
+  }
+  loop();
+}
+
+/* ═══════════════════════════════════════════════
+   POPUPS
+═══════════════════════════════════════════════ */
+function showPopup(id,dur=1400){
+  const el=document.getElementById(id);
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),dur);
+}
+
+/* ═══════════════════════════════════════════════
+   GAME LOGIC
+═══════════════════════════════════════════════ */
+function getMovable(player,dice){
+  return state.tokens[player].reduce((acc,t,i)=>{
+    if(t.finished) return acc;
+    if(t.pos===-1&&dice===6) acc.push(i);
+    else if(t.pos!==-1&&t.pos+dice<=54) acc.push(i);
+    return acc;
+  },[]);
+}
+
+function moveToken(player,idx,dice,cb){
+  const t=state.tokens[player][idx];
+  let killed=false;
+
+  const doFinalMove=()=>{
+    if(t.pos===-1&&dice===6){
+      t.pos=0;
+      addLog(`${cap(player)} #${idx+1} enters board! 🟢`);
+    } else {
+      t.pos+=dice;
+      if(t.pos>=54){t.pos=54;t.finished=true;state.scores[player]++;
+        addLog(`${cap(player)} #${idx+1} reaches home! 🏆`);
+        updateScores();
+      } else {
+        const cell=posToCell(player,t.pos);
+        if(cell&&t.pos<48){
+          const [cc,rc]=cell;
+          const opp=player==='red'?'blue':'red';
+          if(!isSafe(cc,rc)){
+            const oi=state.tokens[opp].findIndex(tt=>{
+              const c2=posToCell(opp,tt.pos);
+              return c2&&c2[0]===cc&&c2[1]===rc;
+            });
+            if(oi!==-1){
+              state.tokens[opp][oi].pos=-1;
+              killed=true;
+              addLog(`${cap(player)} killed ${opp} #${oi+1}! 💥`);
+              showPopup('kill-popup');
+            }
+          }
+          // Trail
+          addTrail(cellX(cc),cellY(rc),COLORS[player]);
+        }
+        addLog(`${cap(player)} #${idx+1} → step ${t.pos}`);
+      }
+    }
+    state.extraTurn=(dice===6||killed);
+    if(cb) cb();
+  };
+
+  // Animate step-by-step
+  if(t.pos!==-1){
+    animateTokenSteps(player,idx,dice,doFinalMove);
+  } else {
+    doFinalMove();
+  }
+}
+
+/* Step-by-step token movement animation */
+function animateTokenSteps(player,idx,steps,cb){
+  const t=state.tokens[player][idx];
+  let step=0;
+  const origPos=t.pos;
+  function next(){
+    if(step>=steps){if(cb)cb();return;}
+    step++;
+    t.pos=origPos+step;
+    if(t.pos>54)t.pos=54;
+    const cell=posToCell(player,t.pos);
+    if(cell) addTrail(cellX(cell[0]),cellY(cell[1]),COLORS[player]);
+    drawBoard();
+    if(t.pos<54) setTimeout(next,90);
+    else{if(cb)cb();}
+  }
+  t.pos=origPos; // reset
+  next();
+}
+
+function checkWinner(){
+  for(const p of['red','blue']) if(state.tokens[p].every(t=>t.finished)) return p;
+  return null;
+}
+
+function nextTurn(){
+  if(!state.extraTurn) state.turn=state.turn==='red'?'blue':'red';
+  state.extraTurn=false;state.phase='roll';state.dice=null;state.movable=[];
+  updateUI();
+}
+
+function cap(s){return s[0].toUpperCase()+s.slice(1);}
+function addLog(msg){
+  const log=document.getElementById('log');
+  const d=document.createElement('div');d.textContent=msg;log.prepend(d);
+  while(log.children.length>40)log.removeChild(log.lastChild);
+}
+function updateScores(){
+  document.getElementById('score-red').textContent=`${state.scores.red} / 4`;
+  document.getElementById('score-blue').textContent=`${state.scores.blue} / 4`;
+}
+
+/* ═══════════════════════════════════════════════
+   UI
+═══════════════════════════════════════════════ */
+function updateUI(){
+  const dot=document.getElementById('turn-dot');
+  const tn=document.getElementById('turn-name');
+  dot.style.background=COLORS[state.turn];
+  dot.style.boxShadow=`0 0 10px ${COLORS[state.turn]}`;
+  tn.style.color=COLORS[state.turn];
+  tn.textContent=cap(state.turn);
+
+  const rb=document.getElementById('roll-btn');
+  if(state.winner){
+    rb.disabled=true;
+    document.getElementById('status-text').textContent='';
+    const wb=document.getElementById('winner-banner');
+    wb.style.display='block';
+    wb.style.background=`linear-gradient(135deg,${COLORS[state.winner]},${DARK[state.winner]})`;
+    wb.style.color='white';
+    wb.textContent=`🏆 ${cap(state.winner)} Wins!`;
+    document.getElementById('new-game-btn').style.display='block';
+    startConfetti();
+    return;
+  }
+  if(state.phase==='roll'){
+    rb.disabled=false;
+    document.getElementById('status-text').textContent=`${cap(state.turn)}'s turn — roll the dice!`;
+  } else {
+    rb.disabled=true;
+    if(state.movable.length===0){
+      document.getElementById('status-text').textContent='No valid moves. Turn passes…';
+      setTimeout(()=>{ nextTurn(); },1400);
+    } else {
+      document.getElementById('status-text').textContent=`Rolled ${state.dice} — tap a glowing token.`;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   EVENTS
+═══════════════════════════════════════════════ */
+document.getElementById('roll-btn').addEventListener('click',()=>{
+  if(state.phase!=='roll'||state.winner||state.animating) return;
+  const d=Math.floor(Math.random()*6)+1;
+  state.dice=d;
+  addLog(`${cap(state.turn)} rolled ${d}`);
+
+  animateDice(d,()=>{
+    state.movable=getMovable(state.turn,d);
+    state.phase='move';
+    updateUI();
+  });
+});
+
+BC.addEventListener('click',e=>{
+  if(state.phase!=='move'||state.winner||state.animating) return;
+  const rect=BC.getBoundingClientRect();
+  const scX=460/rect.width,scY=460/rect.height;
+  const mx=(e.clientX-rect.left)*scX,my=(e.clientY-rect.top)*scY;
+  const col=Math.floor(mx/CS),row=Math.floor(my/CS);
+
+  const player=state.turn;
+  let clickedIdx=-1;
+
+  state.movable.forEach(i=>{
+    const t=state.tokens[player][i];
+    let cell;
+    if(t.pos===-1){cell=HOME_CELLS[player][i];}
+    else{cell=posToCell(player,t.pos);}
+    if(cell&&cell[0]===col&&cell[1]===row) clickedIdx=i;
+  });
+
+  if(clickedIdx===-1) return;
+
+  state.animating=true;
+  state.movable=[];
+  moveToken(player,clickedIdx,state.dice,()=>{
+    state.animating=false;
+    state.winner=checkWinner();
+    if(state.winner){updateUI();drawBoard();return;}
+    if(state.extraTurn){
+      showPopup('extra-popup',1200);
+      addLog(`${cap(player)} gets an extra turn! ⭐`);
+      state.phase='roll';state.dice=null;
+      setTimeout(()=>updateUI(),400);
+    } else {
+      nextTurn();
+    }
+    drawBoard();
+  });
+});
+
+document.getElementById('new-game-btn').addEventListener('click',()=>{
+  initState();
+  drawDiceFace(0);
+  document.getElementById('winner-banner').style.display='none';
+  document.getElementById('new-game-btn').style.display='none';
+  document.getElementById('roll-btn').disabled=false;
+  document.getElementById('log').innerHTML='';
+  updateScores();
+  updateUI();
+  drawBoard();
+});
+
+/* ── Boot ── */
+updateUI();
+drawBoard();
+</script>
+</body>
+</html>
